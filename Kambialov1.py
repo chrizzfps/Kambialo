@@ -1,5 +1,6 @@
 import requests
 import streamlit as st
+from datetime import datetime
 
 # =======================
 # Función para obtener la mejor tasa Binance P2P
@@ -43,6 +44,27 @@ def get_binance_usdt_sell_rate():
         return None
 
 # =======================
+# Función para obtener la tasa oficial del BCV desde Yadio
+# =======================
+def get_bcv_official_rate():
+    """Obtiene la tasa oficial del BCV desde Yadio (último dato)"""
+    url = "https://api.yadio.io/compare/1/VES"
+    try:
+        r = requests.get(url, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        if data and "official" in data[0]:
+            rate = float(data[0]["official"])
+            timestamp_ms = int(data[0].get("timestamp", 0))
+            fecha = datetime.fromtimestamp(timestamp_ms / 1000).strftime("%d/%m/%Y %H:%M:%S") if timestamp_ms else "Fecha no disponible"
+            return {"rate": rate, "fecha": fecha}
+        else:
+            return None
+    except Exception as e:
+        print("⚠️ No se pudo obtener la tasa OFFICIAL de Yadio:", e)
+        return None
+
+# =======================
 # Configuración de la página
 # =======================
 st.set_page_config(page_title="Kambialo", page_icon="💱", layout="centered")
@@ -68,7 +90,32 @@ st.markdown("<h1>Kambialo 💱</h1>", unsafe_allow_html=True)
 # =======================
 st.subheader("Calculadora USDT → VES")
 precio_usd = st.number_input("💲 Precio del producto en USD", min_value=0.0, value=10.0, step=0.01)
-tasa_bcv = st.number_input("Tasa BCV (VES/$)", min_value=0.0, value=8.0, step=0.01)
+
+# =======================
+# Obtener tasa oficial BCV automáticamente
+# =======================
+tasa_info = get_bcv_official_rate()
+if tasa_info is None:
+    tasa_bcv = st.number_input("⚠️ No se pudo obtener la tasa OFFICIAL, ingresa la tasa BCV manualmente (VES/$):", min_value=0.0, value=8.0, step=0.01)
+    fecha_cotizacion = None
+else:
+    tasa_bcv = tasa_info["rate"]
+    fecha_cotizacion = tasa_info["fecha"]
+    st.markdown(f"""
+    <div style="
+        background: #e0f7fa;
+        border-radius: 15px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #00796b;
+    ">
+        Tasa oficial del BCV: {tasa_bcv:.2f} VES/USD<br>
+        <span style="font-size:0.9rem; color:#004d40;">Cotización: {fecha_cotizacion}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 # =======================
 # Obtener tasa Binance
